@@ -58,11 +58,7 @@ div.post, article.post, body {font-size: 16px;}
 <body>
 
 Now we need to work backwards - we have the binary payload and we want to get the source. There is a challenge here. Remember that in assembly programs, we can insert arbitrary data with .db or .dw statements alongside instructions.<!--more--> In order to disassemble effectively, we have to be able to figure out what is "data" and what is "code".
-
-<div class="dir">
-<a href="http://aondir.blogspot.com/search?q=Recompiling+NES+Games&amp;max-results=21">!Table of Contents More</a>
-</div>
-
+<P>
 One possible technique is to emulate the assembly program, and then record the ways in which memory addresses are accessed. After playing a game for a while, you would have a pretty good record of exactly which sections are data and which are code. I decided not to use this technique, however, since the goal of this project is static recompilation. I want to explore just how much is possible to do at compile-time.
 
 <b>So what can we do?</b> First, recall that the last 6 bytes in NES programs are 3 memory addresses which are the 3 entry points into the program:
