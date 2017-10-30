@@ -58,11 +58,7 @@ div.post, article.post, body {font-size: 16px;}
 <body>
 
 One tried and true method to parsing source code is to use a lexer to tokenize the source, and then a parser to turn the tokens into an Abstract Syntax Tree. From there we can process the AST and turn it into the 32KB binary payload.<!--more--> In Go land, this is straightforward thanks to nex, a lexer, and go tool yacc, a parser that is bundled with Go. 
-
-<div class="dir">
-<a href="http://aondir.blogspot.com/search?q=Recompiling+NES+Games&amp;max-results=21">!Table of Contents More</a>
-</div>
-
+<P>
 Here is the parser code that can build an AST for our "Hello, World" example:
 
 <div class="nul"><pre>
