@@ -57,7 +57,7 @@ div.post, article.post, body {font-size: 16px;}
 
 <body>
 
-Here's a small section of Super Mario Brothers 1 disassembly<!--more-->:
+Here's a small section of Super Mario Brothers 1 disassembly:
 
 <div class="nul"><pre>
 Label_8212:
@@ -66,10 +66,6 @@ Label_8212:
     AND ($82), Y
     .db $dc, $ae, $8b, $83, $18, $92
 </pre></div>
-
-<div class="dir">
-<a href="http://aondir.blogspot.com/search?q=Recompiling+NES+Games&amp;max-results=21">!Table of Contents More</a>
-</div>
 
 Notice anything peculiar? After the value at <acode>$0770</code> is loaded into register A, and we return from the <code>Label_8e04</code> subroutine, there is an uncommon indirect <code>AND</code> instruction, followed by data. What could possibly be happening here? Super Mario Brothers 1 is using a common assembly programming technique called a dynamic jump table. Take a look at the <code>Label_8e04</code> subroutine:
 
