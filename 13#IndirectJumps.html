@@ -56,16 +56,10 @@ div.post, article.post, body {font-size: 16px;}
 
 
 <body>
-
-
-We just looked at a dynamic jump table implementation which included this instruction<!--more-->:
+We just looked at a dynamic jump table implementation which included this instruction:
 
 <div class="nul">
 JMP ($0006)
-</div>
-
-<div class="dir">
-<a href="http://aondir.blogspot.com/search?q=Recompiling+NES+Games&amp;max-results=21">!Table of Contents More</a>
 </div>
 
 This is problematic because we do not know what will be in the memory addresses $0006 and $0007 until the instruction is actually executed. One solution is to use our own jump table. We can use our knowledge of the address of each label to create a basic block to jump to when an indirect jump is encountered:
