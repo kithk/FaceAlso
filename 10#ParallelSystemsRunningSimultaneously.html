@@ -57,10 +57,8 @@ div.post, article.post, body {font-size: 16px;}
 
 <body>
 
-To find out how to get something rendering on the screen, I looked at Fergulator - an already-working NES emulator written in Go. <!--more-->Fergulator correctly emulates Super Mario Brothers 1 as well as Zelda Title Screen Simulator, so it will certainly work for our purpose - understanding how the video gets onto the screen. 
-<div class="dir">
-<a href="http://aondir.blogspot.com/search?q=Recompiling+NES+Games&amp;max-results=21">!Table of Contents More</a>
-</div>
+To find out how to get something rendering on the screen, I looked at Fergulator - an already-working NES emulator written in Go. Fergulator correctly emulates Super Mario Brothers 1 as well as Zelda Title Screen Simulator, so it will certainly work for our purpose - understanding how the video gets onto the screen. 
+ 
 The answer is easy to find in this well factored codebase. Looking at the main loop in machine.go, the core logic is revealed:
 
 <div class="nul"><pre>
