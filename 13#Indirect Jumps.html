@@ -1,0 +1,127 @@
+<html><title>Indirect Jumps</title>
+<style type='text/css'>
+body{margin:0px;}
+.main, .widgetd {display:block;width:90%;height:auto;margin:auto;}
+a:link, a:visited {text-decoration: none;color:#29e}
+h3 a:link, h3 a:visited {color:#000}
+.ilink a {float: left;font-size: 18px;}
+.alink {margin:11px 6px;padding: 11px 0px;}
+.alink a, .ilink a {padding:6px 10px;}
+pre{overflow:auto;margin:0px;}
+code {display: inline-block;padding: 0 .3em;border-radius: 3px;color: #333;border: 1px solid #ccc;
+/* line-height: 1.6em; white-space: pre;*/}
+.ileft {float:left;}
+.iright {float:right;}
+article.itmeouter {border-bottom: 3px solid #f1f1f1;;margin:6px 0px;padding: 11px 0;}
+article.post {border-top: 3px solid #f1f1f1;margin:6px 0px;padding:11px 0;}
+a.itemsmore {display:block;margin:16px 0;color:#000;text-align: right;}
+.dir {margin:6px;padding: 0 11px;border-left: 3px solid #f00;}
+.dir a {color:#f00}
+.nul, .cover, .itag{display: block;margin: 11px 0 6px -5.6%;position: relative; font-family:Arial, Helvetica, Tahoma;}
+.cover {width: 108%;padding: 0 1.6%;z-index: 1;}
+.also {margin: 11px 0px;padding: 11px 0;}
+.nul {background: #333;color:#fff;width: 100%;padding: 11px 5.6%;}
+.itag {text-align: center;color:#000;}
+.nul code {color: #fff !important;}
+.adout {display: block;max-width:600px;min-width:290px;height:auto; margin: 16px auto;}
+.icover {margin-top: 8%}
+.input {display: block;max-width: 600px;min-width: 290px;margin:2px auto;}
+.find, .search {display: block;padding: 6px 0px;font-size: 21px;border: 1px solid #aaa;border-radius: 3px;}
+.find {width: 97%;float: left;}
+.input .search {width: 100%;}
+.ititle {font-size: 32px;text-align: center;}
+.idir {text-align: center;}
+.ititle, .idir, .Atitle {color:#fff;text-shadow: 0 0 6px #000;-webkit-text-shadow: 0 0 6px #000;-moz-text-shadow: 0 0 6px #000;}
+.Atitle {margin:11px 0; }
+.Atitle a {font-size: 21px;padding:0;color:#fff;}
+.imggl {display: block;float: left;margin: 0 11px;}
+.face {display: block;width:30%;height:auto;float: left;margin: 0 3.6%;background: #333;}
+.face img {display: block;width:100%;height:auto;}
+.clr {clear: both;float: none;}
+@media screen and (max-width:1920px) {
+div.post, article.post, body {font-size: 23px;}
+}
+@media screen and (max-width:1280px) {
+div.post, article.post, body {font-size: 18px;}
+}
+@media screen and (max-width:800px) {
+div.post, article.post, body {font-size: 16px;}
+}
+@media screen and (max-width:420px) {
+.face {float:none;width: 320px;margin: 6px 0 6px -1.1%;width: 102.3%;}
+.face img{float:none;width: 320px;margin:auto;}
+}
+
+</style>
+
+
+<body>
+
+
+We just looked at a dynamic jump table implementation which included this instruction<!--more-->:
+
+<div class="nul">
+JMP ($0006)
+</div>
+
+<div class="dir">
+<a href="http://aondir.blogspot.com/search?q=Recompiling+NES+Games&amp;max-results=21">!Table of Contents More</a>
+</div>
+
+This is problematic because we do not know what will be in the memory addresses $0006 and $0007 until the instruction is actually executed. One solution is to use our own jump table. We can use our knowledge of the address of each label to create a basic block to jump to when an indirect jump is encountered:
+
+<div class="nul"><pre>
+func (c *Compilation) addDynJumpTable() {
+ c.dynJumpBlock = llvm.AddBasicBlock(c.mainFn, "DynJumpTable")
+ c.builder.SetInsertPointAtEnd(c.dynJumpBlock)
+ pc := c.builder.CreateLoad(c.rPC, "")
+ // Here, panic block causes a runtime error and crashes.
+ sw := c.builder.CreateSwitch(pc, panicBlock, len(c.dynJumpAddrs))
+ for addr, block := range c.dynJumpAddrs {
+  addrVal := llvm.ConstInt(llvm.Int16Type(), uint64(addr), false)
+  sw.AddCase(addrVal, block)
+ }
+}
+</pre></div>
+
+And when a <code>JMP</code> indirect is encountered:
+
+<div class="nul"><pre>
+func (i *Instruction) Compile(c *Compilation) {
+ switch i.OpCode {
+ // ... other cases
+
+ case 0x6c: // jmp indirect
+  newPc := c.loadWord(i.Value)
+  c.builder.CreateStore(newPc, c.rPC)
+  c.cycle(5)
+  c.builder.CreateBr(c.dynJumpBlock)
+   c.currentBlock = nil
+
+ // ... other cases
+  }
+}
+</pre></div>
+
+This ends up looking something like this in the generated module:
+
+<div class="nul"><pre>
+DynJumpTable:
+  %63674 = load i16* @PC
+  switch i16 %63674, label %PanicBlock [
+    i16 -11559, label %Label_d2d9
+    i16 -3527, label %Label_f239
+    i16 -27243, label %Label_9595
+    i16 -28888, label %Label_8f28
+
+    ; (about 2,000 more cases)
+
+    i16 -3045, label %Label_f41b
+    i16 -18147, label %Label_b91d
+  ]
+</pre></div>
+
+This solution will work as long as the indirect jump chooses to jump to one of the labels. However it causes a runtime crash if the indirect jump sets the PC to anything else. As we will soon find out, assembly programmers not only force the processor to do this, but even more heinous acts.
+
+</body>
+</html>

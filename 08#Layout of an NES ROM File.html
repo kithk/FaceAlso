@@ -1,0 +1,476 @@
+<html><title>Layout of an NES ROM File</title>
+<style type='text/css'>
+body{margin:0px;}
+.main, .widgetd {display:block;width:90%;height:auto;margin:auto;}
+a:link, a:visited {text-decoration: none;color:#29e}
+h3 a:link, h3 a:visited {color:#000}
+.ilink a {float: left;font-size: 18px;}
+.alink {margin:11px 6px;padding: 11px 0px;}
+.alink a, .ilink a {padding:6px 10px;}
+pre{overflow:auto;margin:0px;}
+code {display: inline-block;padding: 0 .3em;border-radius: 3px;color: #333;border: 1px solid #ccc;
+/* line-height: 1.6em; white-space: pre;*/}
+.ileft {float:left;}
+.iright {float:right;}
+article.itmeouter {border-bottom: 3px solid #f1f1f1;;margin:6px 0px;padding: 11px 0;}
+article.post {border-top: 3px solid #f1f1f1;margin:6px 0px;padding:11px 0;}
+a.itemsmore {display:block;margin:16px 0;color:#000;text-align: right;}
+.dir {margin:6px;padding: 0 11px;border-left: 3px solid #f00;}
+.dir a {color:#f00}
+.nul, .cover, .itag{display: block;margin: 11px 0 6px -5.6%;position: relative; font-family:Arial, Helvetica, Tahoma;}
+.cover {width: 108%;padding: 0 1.6%;z-index: 1;}
+.also {margin: 11px 0px;padding: 11px 0;}
+.nul {background: #333;color:#fff;width: 100%;padding: 11px 5.6%;}
+.itag {text-align: center;color:#000;}
+.nul code {color: #fff !important;}
+.adout {display: block;max-width:600px;min-width:290px;height:auto; margin: 16px auto;}
+.icover {margin-top: 8%}
+.input {display: block;max-width: 600px;min-width: 290px;margin:2px auto;}
+.find, .search {display: block;padding: 6px 0px;font-size: 21px;border: 1px solid #aaa;border-radius: 3px;}
+.find {width: 97%;float: left;}
+.input .search {width: 100%;}
+.ititle {font-size: 32px;text-align: center;}
+.idir {text-align: center;}
+.ititle, .idir, .Atitle {color:#fff;text-shadow: 0 0 6px #000;-webkit-text-shadow: 0 0 6px #000;-moz-text-shadow: 0 0 6px #000;}
+.Atitle {margin:11px 0; }
+.Atitle a {font-size: 21px;padding:0;color:#fff;}
+.imggl {display: block;float: left;margin: 0 11px;}
+.face {display: block;width:30%;height:auto;float: left;margin: 0 3.6%;background: #333;}
+.face img {display: block;width:100%;height:auto;}
+.clr {clear: both;float: none;}
+@media screen and (max-width:1920px) {
+div.post, article.post, body {font-size: 23px;}
+}
+@media screen and (max-width:1280px) {
+div.post, article.post, body {font-size: 18px;}
+}
+@media screen and (max-width:800px) {
+div.post, article.post, body {font-size: 16px;}
+}
+@media screen and (max-width:420px) {
+.face {float:none;width: 320px;margin: 6px 0 6px -1.1%;width: 102.3%;}
+.face img{float:none;width: 320px;margin:auto;}
+}
+
+</style>
+
+
+<body>
+
+In this section we will test the game to run and customize it a nice one and you should learn more with iNES emulator. The generally accepted standard for distributing NES games is the .nes format, originally started<!--more--> by the <a href="http://fms.komkon.org/iNES/">iNES emulator</a>. A <code>.nes</code> file looks like:
+
+<div  class="dir">
+16 byte header with metadata, such as:
+<div  class="dir">
+What mapper, if any, the game uses.
+</div>
+<div  class="dir">
+Whether the PPU uses vertical or horizontal mirroring. For now, don't worry so much about exactly what this means, as much as that it is a setting that the PPU needs to know about at bootup.
+</div>
+
+
+</div>
+<div  class="dir">
+The 32 KB of assembled code which gets loaded into $8000 - $ffff on bootup. If there is a mapper, there might be more of this program data, but we'll talk about that later.
+</div>
+
+<div  class="dir">
+8KB of graphics data, known as CHR-ROM. This gets loaded into the PPU on bootup. Again if there is a mapper, there might be more of this graphics data.
+</div>
+
+<div class="dir">
+<a href="http://aondir.blogspot.com/search?q=Recompiling+NES+Games&amp;max-results=21">!Table of Contents More</a>
+</div>
+
+If you're looking for a reference for the gory details of this format, see the <a href="http://wiki.nesdev.com/w/index.php/INES">Nesdev Wiki</a> or the <a href="http://fms.komkon.org/EMUL8/NES.html">official specification</a>.
+
+The first "real" ROM I tried to recompile is this demo ROM made by <a href="http://www.chrismcovell.com/">Chris Covell</a> in 1998 called <a href="https://www.castledragmire.com/hynes/reference/resource/index.html">Zelda Title Screen Simulator</a>. If you run this ROM in an emulator, you get a title screen that looks nearly identical to Zelda 1:
+<P>
+Now that we're recompiling a real ROM, we'll have to do several more things to make it work:
+
+<div  class="dir">
+Include the graphics data in the binary.
+</div>
+<div  class="dir">
+Include the mirroring setting (vertical or horizontal) in the binary.
+</div>
+<div  class="dir">
+Support code gen for more instructions.
+</div>
+<div  class="dir">
+Include a runtime to create a window and render the video to the screen.
+</div>
+
+Including the graphics data and mirroring setting in the binary is trivial. We get all the information we need when we read the ROM file; all we need to do is convert it to global variables in our LLVM module:
+
+<div class="nul"><pre>
+// In this snippet, `program` is an object which contains
+// the information we loaded from the ROM file.
+// chrRom is [][]byte - n banks of 8KB. At this point,
+// we only support 1 bank.
+if len(program.chrRom) != 1 {
+ panic("Only 1 bank of CHR ROM is supported.")
+}
+dataLen := 0x2000 * len(chrRom)
+chrDataValues := make([]llvm.Value, 0, dataLen)
+int8type := llvm.Int8Type()
+for _, bank := range chrRom {
+ for _, b := range bank {
+  chrDataValues = append(chrDataValues, llvm.ConstInt(int8type, uint64(b), false))
+ }
+}
+chrDataConst := llvm.ConstArray(llvm.ArrayType(llvm.Int8Type(), dataLen), chrDataValues)
+// `c.mod` is our `llvm.Module` object. `c` is an instance of our
+// `Compilation` struct from a previous code listing.
+chrDataGlobal := llvm.AddGlobal(c.mod, chrDataConst.Type(), "rom_chr_data")
+// Setting the linkage to private here. We'll figure out what to do
+// with this information soon.
+chrDataGlobal.SetLinkage(llvm.PrivateLinkage)
+chrDataGlobal.SetInitializer(chrDataConst)
+chrDataGlobal.SetGlobalConstant(true)
+
+// Now we add the global variable specifying the mirroring setting.
+mirroringValue := llvm.ConstInt(llvm.Int8Type(), uint64(program.Mirroring), false)
+mirroringGlobal := llvm.AddGlobal(c.mod, mirroringValue.Type(), "rom_mirroring")
+mirroringGlobal.SetLinkage(llvm.PrivateLinkage)
+mirroringGlobal.SetInitializer(mirroringValue)
+mirroringGlobal.SetGlobalConstant(true)
+</pre></div>
+
+The next step to getting our selected ROM to work is to support the additional instructions that this program uses. Let's unpack that rom and see what we're up against:
+
+<div class="nul"><pre>
+$ ./jamulate -unrom roms/Zelda.NES
+loading roms/Zelda.NES
+disassembling to roms/Zelda
+$ ls -l roms/Zelda
+-rw-rw-r-- 1 andy andy 8192 May 24 23:53 chr0.chr
+-rw-rw-r-- 1 andy andy 7977 May 24 23:53 prg.asm
+-rw-rw-r-- 1 andy andy  485 May 24 23:53 Zelda.jam
+</pre></div>
+
+The code to unpack a .nes file into CHR data, PRG data, and metadata is left as an exercise to the reader. <code>chr0.chr</code> is binary data; it is the 8KB of graphics data mentioned before which is loaded into the PPU on bootup. <code>Zelda.jam</code> is where I decided to put the program metadata in a simple key-value text format:
+
+<div class="nul"><pre>
+# output file name when this rom is assembled
+filename=Zelda.NES
+# see http://wiki.nesdev.com/w/index.php/Mapper
+mapper=0
+# 'Horizontal', 'Vertical', or 'FourScreenVRAM'
+# see http://wiki.nesdev.com/w/index.php/Mirroring
+mirroring=Horizontal
+# whether SRAM in CPU $6000-$7FFF is present
+sram=true
+# whether the SRAM in CPU $6000-$7FFF, if present, is battery backed
+battery=false
+# 'NTSC', 'PAL', or 'DualCompatible'
+tvsystem=NTSC
+# assembly code
+prg=prg.asm
+# video data
+chr=chr0.chr
+</pre></div>
+
+<a href="https://github.com/andrewrk/jamulator/issues/1">In retrospect</a>, I think it would have been simpler to have the assembler support special declarations for this metadata rather than having a separate file. But hey, it works. You may notice there is some metadata there which is never addressed in this article. For the purposes of this project, we don't need to think about SRAM, battery, or tvsystem. None of the examples we look at use them. Without further ado, let's see how the disassembler fared:
+
+<div class="nul"><pre>
+.org $c000
+    .db "Zelda Simulator, ", $a9, "1998 Chris Covell (ccovell@direct.ca)"
+Reset_Routine:
+    CLD
+    SEI
+Label_c039:
+    LDA $2002
+    BPL Label_c039
+    LDX #$00
+    STX $2000
+    STX $2001
+    DEX
+    TXS
+    LDY #$06
+    STY $01
+    LDY #$00
+    STY $00
+    LDA #$00
+Label_c052:
+    STA ($00), Y
+    DEY
+    BNE Label_c052
+    DEC $01
+    BPL Label_c052
+    LDX #$3f
+    STX $2006
+    LDX #$00
+    STX $2006
+    LDX #$27
+    LDY #$20
+Label_c069:
+    STX $2007
+    DEY
+    BNE Label_c069
+    LDX #$3f
+    STX $2006
+    LDX #$00
+    STX $2006
+    LDX #$00
+    LDY #$20
+Label_c07d:
+    LDA Label_c101, X
+    STA $2007
+    INX
+    DEY
+    BNE Label_c07d
+    LDX #$23
+    STX $2006
+    LDX #$c0
+    STX $2006
+    LDX #$00
+    LDY #$40
+Label_c095:
+    LDA Label_c121, X
+    STA $2007
+    INX
+    DEY
+    BNE Label_c095
+    LDX #$20
+    STX $2006
+    LDX #$00
+    STX $2006
+    LDX #$00
+    LDY #$00
+Label_c0ad:
+    LDA Label_c261, X
+    STA $2007
+    INX
+    DEY
+    BNE Label_c0ad
+    LDX #$00
+    LDY #$00
+Label_c0bb:
+    LDA Label_c361, X
+    STA $2007
+    INX
+    DEY
+    BNE Label_c0bb
+    LDX #$00
+    LDY #$00
+Label_c0c9:
+    LDA Label_c461, X
+    STA $2007
+    INX
+    DEY
+    BNE Label_c0c9
+    LDX #$00
+    LDY #$c0
+Label_c0d7:
+    LDA Label_c561, X
+    STA $2007
+    INX
+    DEY
+    BNE Label_c0d7
+    LDX #$00
+    STX $2003
+    LDX #$00
+    LDY #$00
+Label_c0ea:
+    LDA Label_c161, X
+    STA $2004
+    INX
+    DEY
+    BNE Label_c0ea
+    LDA #$90
+    STA $2000
+    LDA #$1e
+    STA $2001
+Label_c0fe:
+    JMP Label_c0fe
+Label_c101:
+    .db $36, $0d, $00, $10, $36, $17, $27, $0d
+    .db $36, $08, $1a, $28, $36, $30, $31, $22
+    .db $36, $30, $31, $11, $36, $15, $15, $15
+    .db $36, $08, $1a, $28, $36, $30, $31, $22
+Label_c121:
+    .db $05, $05, $05, $05, $05, $05, $05, $05
+    .db $08, "jZZZZ", $9a, $22, $00, "fUUUU", $99, $00
+    .db $00, $6e, $5f, $55, $5d, $df, $bb, $00
+    .db $00, $0a, $0a, $0a, $0a, $0a, $0a, $00
+    .db $00, $00, $c0, $30, $00, $00, $00, $00
+    .db $00, $00, $cc, $33, $00, $00, $00, $00
+    .db $00, $20, $fc, $f3, $00, $00, $f0, $f0
+Label_c161:
+    .db $27, $ca, $02, $28, $2f, $cb, $02, $28
+    .db $27, $cc, $02, $30, $2f, $cd, $02, $30
+    .db $27, $d6, $02, $50, $2c, $d6, $02, $a0
+    .db $27, $cc, $42, $c8, $2f, $cd, $42, $c8
+    .db $27, $ca, $42, $d0, $2f, $cb, $42, $d0
+    .db $31, $d2, $02, $57, $31, $d4, $02, $5f
+    .db $3f, $d4, $02, $24, $41, $d4, $02, $63
+    .db $4f, $d6, $02, $2c, $4f, $d2, $02, $cb
+    .db $57, $ce, $02, $73, $5f, $cf, $02, $73
+    .db $57, $d0, $02, $7b, $5f, $d1, $02, $7b
+    .db $67, $d2, $02, $7a, $7b, $d4, $02, $90
+    .db $7b, $d6, $02, $bc, $82, $d2, $02, $50
+    .db $77, $cb, $82, $28, $7f, $ca, $82, $28
+    .db $77, $cd, $82, $30, $7f, $cc, $82, $30
+    .db $77, $cd, $c2, $c8, $7f, $cc, $c2, $c8
+    .db $77, $cb, $c2, $d0, $7f, $ca, $c2, $d0
+    .db $af, $a3, $00, $50, $af, $a5, $00, $58
+    .db $af, $a7, $00, $60, $af, $a9, $00, $68
+    .db $b7, $b2, $00, $50, $b7, $b4, $00, $58
+    .db $b7, $b6, $00, $60, $b7, $b8, $00, $68
+    .db $c9, $c2, $00, $50, $d1, $c3, $00, $50
+    .db $c9, $c4, $00, $58, $d1, $c5, $00, $58
+    .db $c9, $c6, $00, $60, $d1, $c7, $00, $60
+    .db $c9, $c8, $00, $68, $d1, $c9, $00, $68
+    .db $d9, $c2, $00, $50, $e1, $c3, $00, $50
+    .db $d9, $c4, $00, $58, $e1, $c5, $00, $58
+    .db $d9, $c6, $00, $60, $e1, $c7, $00, $60
+    .db $d9, $c8, $00, $68, $e1, $c9, $00, $68
+    .db $67, $a0, $03, $58, $67, $a0, $03, $60
+    .db $67, $a0, $03, $68, $67, $a0, $03, $70
+    .db $67, $a0, $03, $78, $67, $a0, $03, $80
+    .db $67, $a0, $03, $88, $00, $b0, $00, $00
+Label_c261:
+    .db "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", $e0, $d5, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$", $d4, $e0, $dc, $d7
+    .db "$$$$$$$$$$$$$$$$$$$$$$$$$$$$", $d6, $dd, $dc, $ee, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$", $d6, $db
+    .db $de, $d7, $24, $24, $24, $e6, $e4, $e5
+    .db $e4, $e5, $e4, $e5, $e4, $e5, $e4, $e5
+    .db $e4, $e5, $e4, $e5, $e4, $e5, $e4, $e5
+    .db $e4, $e5, $e6, $24, $24, $24, $d6, $db
+    .db $dc, $d7, $24, $24, $24, $e2, "$$$$$$$$$$$$$$$$$$$$", $e3
+    .db $24, $24, $24, $d6, $df, $de, $ee, $24
+    .db $24, $24, $e3, "$$qrstuvwxyyyz{$$$$$", $e2, $24, $24, $24
+    .db $d6, $db
+Label_c361:
+    .db $de, $d8, $ef, $24, $24, $e2, $24, $7c
+    .db $7d, $7e, $7f, $80, $81, $82, $83, $84
+    .db $85, $86, $87, $88, $89, $8a, $8b, $24
+    .db $24, $24, $e3, $24, $24, $24, $d6, $df
+    .db $dc, $da, $d7, $24, $24, $e3, $24, $8c
+    .db $8d, $8e, $8f, $90, $91, $92, $93, $94
+    .db $95, $96, $97, $98, $99, $9a, $9b, $9c
+    .db $24, $24, $e2, $24, $24, $d4, $d9, $db
+    .db $dc, $d9, $ee, $24, $24, $e2, $24, $9d
+    .db $9e, $9f, $a0, $a1, $a2, $a3, $a4, $a5
+    .db $a6, $a7, $a8, $a9, $aa, $ab, $ac, $ad
+    .db $ae, $24, $e3, $24, $24, $d6, $db, $df
+    .db $de, $db, $d7, $24, $24, $e3, $70, $af
+    .db $b0, $b1, $b2, $b3, $b4, $b5, $b6, $b7
+    .db $b8, $b9, $ba, $bb, $bc, $bd, $be, $bf
+    .db $c0, $24, $e2, $24, $24, $d6, $db, $db
+    .db $dc, $dd, $d7, $24, $24, $e2, "$$$$$$$", $c1
+    .db $c2, $c3, $c4, $c5, "$$$$$$$$", $e3, $24, $24
+    .db $d6, $db, $df, $de, $db, $ee, $24, $24
+    .db $e3, $24, $c6, $c7, $c8, $c8, $c8, $24
+    .db $c9, $ca, $cb, $cc, $cd, $c8, $c8, $c8
+    .db $c8, $e8, $e9, $d3, $24, $e2, $24, $24
+    .db $d6, $db, $db, $dc, $db, $d7, $24, $24
+    .db $e2, "$$$$$$$$$", $ce, $cf, "$$$$$", $ea, $eb, $ec
+    .db $24, $e3, $24, $24, $d6, $db, $df, $dc
+    .db $db, $d7, $24, $24, $e3, "$$$$$$$$$", $d1, $d2
+    .db "$$$$$$$$$", $e2, $24, $24, $d6, $db, $db
+Label_c461:
+    .db $dc, $d8, $e1, $d5, $24, $e6, $e4, $e5
+    .db $e4, $e5, $e4, $e5, $e4, $e5, $e4, $e5
+    .db $e4, $e5, $e4, $e5, $e4, $e5, $e4, $e5
+    .db $e4, $e5, $e6, $24, $d4, $e1, $d9, $dd
+    .db $dc, $da, $dc, $d7, "$$$$$$$$$", $f0, $01, $09
+    .db $08, $06, $24, $17, $12, $17, $1d, $0e
+    .db $17, $0d, $18, $24, $d6, $dc, $db, $df
+    .db $dc, $da, $dc, $ee, "$$$$$$$$$$$$$$$$$$$$$$$$", $d6, $de, $ed
+    .db $dd, $dc, $da, $de, $d7, "$$$$$$$$$$$$$$$$$$$$$$$$", $d6, $de
+    .db $db, $dd, $e1, $d9, $dc, $ed, $e0, $ef
+    .db $24, $24, $19, $1e, $1c, $11, $24, $1c
+    .db $1d, $0a, $1b, $1d, $24, $0b, $1e, $1d
+    .db $1d, $18, $17, $24, $24, $24, $d6, $d8
+    .db $e1, $d9, $dd, $ed, $de, $d8, $e1, $e1
+    .db $d5, "$$$$$$$$$$$$$$$$$$$$$", $d6, $da, $dd, $ed, $dd, $db
+    .db $de, $da, $dc, $dd, $d8, $e0, $e0, $ef
+    .db $24, $24, $24, $24, $d4, $e0, $e0, $d5
+    .db "$$$$$$$$", $d4, $ef, $da, $da, $df, $db, $df
+    .db $db, $dc, $da, $de, $df, $da, $dc, $dd
+    .db $db, $26, $26, $26, $26, $da, $dc, $dd
+    .db $ed, $e0, $e0, $ef, $24, $d4, $e0, $e0
+    .db $e0, $d9, $db, $da, $da, $df, $db
+Label_c561:
+    .db $ed, $d8, $e1, $d9, $de, $d8, $e1, $d9
+    .db $df, $db, $26, $26, $26, $26, $da, $dc
+    .db $d8, $e1, $d9, $dc, $d8, $e0, $d9, $dc
+    .db $dd, $dd, $d8, $e1, $e1, $d9, $dd, $ed
+    .db $ed, $da, $dd, $ed, $de, $da, $dc, $db
+    .db $dd, $db, $26, $26, $26, $26, $da, $de
+    .db $da, $dc, $db, $de, $da, $dd, $ed, $dc
+    .db $dc, $dd, $da, $dc, $dc, $db, $dd, $ed
+    .db $ed, $da, $dd, $d8, $e1, $da, $dc, $db
+    .db $df, $db, $26, $26, $26, $26, $da, $d8
+    .db $d9, $dc, $db, $dc, $da, $d8, $e1, $d9
+    .db $de, $df, $da, $d8, $e1, $e1, $d9, $e1
+    .db $ed, $d9, $df, $da, $dc, $da, $de, $db
+    .db $dd, $db, $26, $26, $26, $26, $da, $da
+    .db $ed, $de, $d8, $e1, $e1, $d9, $dc, $db
+    .db $de, $d8, $e1, $d9, $dd, $dd, $db, $dc
+    .db $df, $db, $df, $da, $dc, $db, $de, $db
+    .db $dd, $db, $26, $26, $26, $26, $da, $da
+    .db $db, $dd, $da, $de, $d8, $e1, $d9, $db
+    .db $de, $da, $dd, $db, $de, $df, $d8, $e1
+    .db $df, $db, $df, $da, $dc, $db, $de, $db
+    .db $dd, $db, $26, $26, $26, $26, $da, $da
+    .db $db, $dd, $da, $de, $da, $dd, $db, $db
+    .db $de, $da, $dd, $db, $de, $df, $dc, $e1
+NMI_Routine:
+    LDX #$00
+    STX $2005
+    STX $2005
+    RTI
+IRQ_Routine:
+    RTI
+.org $fffa, $00
+    .dw NMI_Routine
+    .dw Reset_Routine
+    .dw IRQ_Routine
+</pre></div>
+
+Looking at this disassembly, several things come to mind:
+
+<div class="dir">
+Our ASCII detection did a good job with that string at the beginning. Nice.
+</div>
+
+<div class="dir">
+This code introduces only a few new instructions. It won't be too cumbersome to add code gen to support this.
+</div>
+
+<div class="dir">
+It looks like the disassembler was able to disassemble the entire program. You can see at the end there is an infinite loop and then data follows.
+</div>
+
+<div class="dir">
+ASCII detection found some false positives. Oh well. It makes no difference to the execution of the program.
+</div>
+
+<div class="dir">
+The IRQ interrupt is not used, but it looks like the NMI interrupt might be used.
+</div>
+
+Let's see if we can once again delay dealing with interrupts at all. Modify the <code>NMI_Routine</code> block so that it looks like this:
+
+<div class="nul"><pre>
+NMI_Routine:
+    RTI
+</pre></div>
+
+Good thing we bothered to make an assembler. Now we can put the ROM back together, run it in an emulator, and see if it still works:
+
+<div class="nul"><pre>
+$ ./jamulate -rom roms/Zelda/Zelda.jam
+building rom from roms/Zelda/Zelda.jam
+saving rom Zelda.NES
+</pre></div>
+
+Again, writing the code to pack the rom back together into an .nes file is left as an exercise to the reader.
+<P>
+Now we observe the ROM running in an emulator and see if it still works: Ha! It works but the sword is bent. That's actually pretty convenient - now when we want to make interrupts work, we know how to test them. But like true software developers, we're going to ignore any and all problems as long as possible. The only thing left to do then, is to add code gen support for the new instructions. This leads us to our first challenge.
+
+
+</body>
+</html>

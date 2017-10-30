@@ -1,0 +1,104 @@
+<html><title>Crash Course</title>
+<style type='text/css'>
+body{margin:0px;}
+.main, .widgetd {display:block;width:90%;height:auto;margin:auto;}
+a:link, a:visited {text-decoration: none;color:#29e}
+h3 a:link, h3 a:visited {color:#000}
+.ilink a {float: left;font-size: 18px;}
+.alink {margin:11px 6px;padding: 11px 0px;}
+.alink a, .ilink a {padding:6px 10px;}
+pre{overflow:auto;margin:0px;}
+code {display: inline-block;padding: 0 .3em;border-radius: 3px;color: #333;border: 1px solid #ccc;
+/* line-height: 1.6em; white-space: pre;*/}
+.ileft {float:left;}
+.iright {float:right;}
+article.itmeouter {border-bottom: 3px solid #f1f1f1;;margin:6px 0px;padding: 11px 0;}
+article.post {border-top: 3px solid #f1f1f1;margin:6px 0px;padding:11px 0;}
+a.itemsmore {display:block;margin:16px 0;color:#000;text-align: right;}
+.dir {margin:6px;padding: 0 11px;border-left: 3px solid #f00;}
+.dir a {color:#f00}
+.nul, .cover, .itag{display: block;margin: 11px 0 6px -5.6%;position: relative; font-family:Arial, Helvetica, Tahoma;}
+.cover {width: 108%;padding: 0 1.6%;z-index: 1;}
+.also {margin: 11px 0px;padding: 11px 0;}
+.nul {background: #333;color:#fff;width: 100%;padding: 11px 5.6%;}
+.itag {text-align: center;color:#000;}
+.nul code {color: #fff !important;}
+.adout {display: block;max-width:600px;min-width:290px;height:auto; margin: 16px auto;}
+.icover {margin-top: 8%}
+.input {display: block;max-width: 600px;min-width: 290px;margin:2px auto;}
+.find, .search {display: block;padding: 6px 0px;font-size: 21px;border: 1px solid #aaa;border-radius: 3px;}
+.find {width: 97%;float: left;}
+.input .search {width: 100%;}
+.ititle {font-size: 32px;text-align: center;}
+.idir {text-align: center;}
+.ititle, .idir, .Atitle {color:#fff;text-shadow: 0 0 6px #000;-webkit-text-shadow: 0 0 6px #000;-moz-text-shadow: 0 0 6px #000;}
+.Atitle {margin:11px 0; }
+.Atitle a {font-size: 21px;padding:0;color:#fff;}
+.imggl {display: block;float: left;margin: 0 11px;}
+.face {display: block;width:30%;height:auto;float: left;margin: 0 3.6%;background: #333;}
+.face img {display: block;width:100%;height:auto;}
+.clr {clear: both;float: none;}
+@media screen and (max-width:1920px) {
+div.post, article.post, body {font-size: 23px;}
+}
+@media screen and (max-width:1280px) {
+div.post, article.post, body {font-size: 18px;}
+}
+@media screen and (max-width:800px) {
+div.post, article.post, body {font-size: 16px;}
+}
+@media screen and (max-width:420px) {
+.face {float:none;width: 320px;margin: 6px 0 6px -1.1%;width: 102.3%;}
+.face img{float:none;width: 320px;margin:auto;}
+}
+
+</style>
+
+
+<body>
+
+Take a break from LLVM for a moment and consider the Nintendo Entertainment System. The NES consists of 4 systems working together in parallel<!--more-->:
+
+
+<div class="dir">
+CPU - 8-bit processor. Basically a MOS 6502.
+</div>
+<div class="dir">
+Picture Processing Unit
+</div>
+<div class="dir">
+Audio Processing Unit
+</div>
+<div class="dir">
+Usually a mapper: custom hardware used to provide extra ROM (and sometimes other stuff)
+</div>
+
+<div class="dir">
+<a href="http://aondir.blogspot.com/search?q=Recompiling+NES+Games&amp;max-results=21">!Table of Contents More</a>
+</div>
+
+The NES uses memory-mapped I/O, which means that, to interact with hardware, you read from and write to special memory addresses. Take a look at a simplified version of the memory layout of the NES at runtime:
+
+<div class="dir">
+<code>$0000 </code> to <code>$07ff </code> RAM. Unless they use a mapper, NES games only get 2KB of RAM!
+</div>
+<div class="dir">
+<code>$2000</code> to <code>$2007 </code> These memory addresses are hooked up to the PPU and hence are used to control what is being displayed on the screen.
+</div>
+<div class="dir">
+<code>$4000</code> to <code>$4015 </code> These are hooked up to the APU and are used to control the sound that plays.
+</div>
+<div class="dir">
+<code>$4016</code> to <code>$4017 </code> These are used to read the state of the game controllers.
+</div>
+<div class="dir">
+<code>$8000</code> to <code>$ffff </code> This is Read Only Memory. The game code itself is loaded here, so games can embed data in their program code and read it in this address range.
+</div>
+
+Let's break this down. First, note that the entire addressable range of the NES is 64KB. Thus all addresses can be represented by 2 bytes, or 4 hex digits. Next, note that in 6502 assembly, $ is standard for hexadecimal notation. So the address range is <code>$0000 to $ffff</code>. Of the 64KB addressable range, 29KB is (usually) completely unused!
+
+Note the <code>$8000 - $ffff</code> range. When you create an NES game, you write 6502 assembly code, which is assembled into a 32KB binary, which is loaded into the <code>$8000 - $ffff</code> range during bootup. Let's write some example 6502 code to illustrate.
+
+
+</body>
+</html>
